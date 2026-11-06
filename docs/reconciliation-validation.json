@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-29",
+  "scope": "local SQLite only; no production or live SAP mutations",
+  "tests": {
+    "passed": 109,
+    "assertions": 764
+  },
+  "build": "passed; Vite bundle-size advisory",
+  "backfill": {
+    "mapped": 10111,
+    "second_run_mapped": 0,
+    "review": 76,
+    "legacy_frozen": 75,
+    "unknown_account": 1
+  },
+  "financial_preservation": {
+    "challans": {
+      "before": 1,
+      "after": 1,
+      "original_columns_unchanged": true
+    },
+    "challan_items": {
+      "before": 1,
+      "after": 1,
+      "original_columns_unchanged": true
+    },
+    "payments": {
+      "before": 0,
+      "after": 0,
+      "original_columns_unchanged": true
+    },
+    "member_charges": {
+      "before": 2262,
+      "after": 2262,
+      "original_columns_unchanged": true
+    },
+    "member_transactions": {
+      "before": 331307,
+      "after": 331307,
+      "original_columns_unchanged": true
+    },
+    "bank_transactions": {
+      "before": 1,
+      "after": 1,
+      "original_columns_unchanged": true
+    }
+  },
+  "integrity_check": "ok",
+  "foreign_key_errors": 0,
+  "backfill_audits": 10111
+}

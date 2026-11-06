@@ -1,0 +1,522 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LDA Sports Complex Mobile API Developer Guide</title><style>body{font:16px/1.6 system-ui,sans-serif;color:#172c27;max-width:1140px;margin:40px auto;padding:0 24px}h1,h2,h3{line-height:1.25}h1{font-size:34px}h2{margin-top:44px;color:#17503e}table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #d3dfda;text-align:left;padding:10px;vertical-align:top}th{background:#eaf2ee}code{font-size:13px;overflow-wrap:anywhere}pre{overflow:auto;background:#eff4f2;padding:18px;border-radius:8px}a{color:#17503e}@media print{body{max-width:none;margin:0;font-size:10pt}table{font-size:9pt}pre{white-space:pre-wrap}h2,h3{break-after:avoid}tr{break-inside:avoid}}</style></head><body><h1 id="lda-sports-complex-mobile-api">LDA Sports Complex Mobile API</h1>
+<p>Developer handoff • API v1 • HTTPS update 22 October 2026</p>
+<h2 id="delivery-and-scope">Delivery and scope</h2>
+<p>This package implements a native mobile backend for <strong>members and applicants</strong>. It supports public discovery, device login, registration, password recovery, profile and memberships, dues and ledger, challans, facilities, appointments, notifications, membership cards, dependents and BOP MPGS sandbox payments.</p>
+<p>Status: deployed, with publicly trusted HTTPS enabled on 22 October 2026. Website: `https://104.207.64.25/sports-complex/`. Live mobile API: `https://104.207.64.25/sports-complex/api/mobile/v1`. HTTPS token login, account and ledger reads, logout and token revocation were verified externally using a temporary synthetic account, which was then removed. HTTP requests redirect to HTTPS; clients should use the HTTPS base URL directly. The IP certificate renews automatically, with checks every six hours and a successful renewal/deploy-hook dry run.</p>
+<ul>
+<li>Local base URL: <code>http://127.0.0.1:8000/api/mobile/v1</code></li>
+<li>Android emulator: <code>http://10.0.2.2:8000/api/mobile/v1</code></li>
+<li>Physical devices: use a reachable development host and appropriate HTTPS configuration.</li>
+<li>Live base URL: <code>https://104.207.64.25/sports-complex/api/mobile/v1</code>.</li>
+<li>Mobile staff administration, new SAP challan creation, monthly billing scheduler, attendance scanning, push delivery, refunds, settlement reconciliation and production bank activation are outside this member API release.</li>
+<li><code>openapi.json</code> is importable into Swagger Editor or compatible API tools. Reused resource responses permit additive fields; this guide defines the fields the mobile app should rely on.</li>
+<li><code>postman_collection.json</code> includes all 33 operations, placeholder data and a login script that saves the returned token. Replace placeholder IDs with records from your own account.</li>
+</ul>
+<h2 id="authentication-and-app-flow">Authentication and app flow</h2>
+<p>Send <code>Accept: application/json</code> and, for JSON writes, <code>Content-Type: application/json</code>. Protected requests also require <code>Authorization: Bearer &lt;access_token&gt;</code>. Cookies, <code>/sanctum/csrf-cookie</code> and CSRF tokens are not required for these routes. Browser session authentication alone is rejected.</p>
+<ol>
+<li>Load <code>GET /portal</code> to get complexes and appointment purposes.</li>
+<li>Existing members sign in using their provisioned member CNIC or email and password. Staff/admin credentials are deliberately rejected.</li>
+<li>A new applicant may register. Registration creates an unlinked applicant account; it does not create an active membership or grant facility access. An existing member CNIC requires staff-assisted provisioning; CNIC knowledge alone cannot link financial records.</li>
+<li>Store <code>access_token</code> in iOS Keychain or Android Keystore-backed secure storage. Never embed tokens or passwords in source, analytics, query strings or logs.</li>
+<li>If <code>must_change_password</code> is true, show the change-password screen. Only <code>/auth/me</code>, <code>/auth/password</code> and <code>/auth/logout</code> are available until changed. Other protected endpoints return HTTP 409 and <code>code: PASSWORD_CHANGE_REQUIRED</code>.</li>
+<li>Password change revokes <strong>all device tokens</strong>, including the caller. Clear local credentials and log in again with the new password. Reset through either the mobile or existing web reset flow also revokes device tokens. Existing web password changes revoke tokens too.</li>
+<li>Tokens expire after 30 days. There is no refresh token. On 401, clear the token and return to login. On 403, show access denied; the account may be inactive or the resource belongs to someone else. Logout revokes only the current device token.</li>
+<li>Use <code>/me</code> for profile and membership plans, <code>/dashboard</code> for summary and appointments, and the dedicated ledger, challan and notification endpoints for their screens.</li>
+</ol>
+<h3 id="login-example">Login example</h3>
+<pre><code class="language-bash">curl -X POST http://127.0.0.1:8000/api/mobile/v1/auth/login \
+  -H 'Accept: application/json' -H 'Content-Type: application/json' \
+  -d '{&quot;login&quot;:&quot;member@example.test&quot;,&quot;password&quot;:&quot;YOUR_MEMBER_PASSWORD&quot;,&quot;device_name&quot;:&quot;Android phone&quot;}'
+</code></pre>
+<p>Example response, HTTP 200:</p>
+<pre><code class="language-json">{
+  &quot;token_type&quot;: &quot;Bearer&quot;,
+  &quot;access_token&quot;: &quot;TOKEN_RETURNED_ONCE&quot;,
+  &quot;expires_at&quot;: &quot;2026-11-17T09:00:00.000000Z&quot;,
+  &quot;must_change_password&quot;: false,
+  &quot;user&quot;: {
+    &quot;id&quot;: 123,
+    &quot;name&quot;: &quot;Demo Member&quot;,
+    &quot;email&quot;: &quot;member@example.test&quot;,
+    &quot;cnic&quot;: &quot;9999900000001&quot;,
+    &quot;phone&quot;: &quot;03000000000&quot;,
+    &quot;member_id&quot;: 456,
+    &quot;must_change_password&quot;: false
+  }
+}
+</code></pre>
+<p>The examples are synthetic and do not identify a working account. Do not use the administrator password from the director brief in the mobile app.</p>
+<pre><code class="language-bash">curl http://127.0.0.1:8000/api/mobile/v1/me \
+  -H 'Accept: application/json' -H 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+</code></pre>
+<h2 id="endpoint-reference">Endpoint reference</h2>
+<p>All paths below are relative to the base URL. <code>Token and password changed</code> means an active member/applicant token with no pending temporary-password change. IDs are internal integers unless described otherwise. Bank transactions use <code>public_id</code> UUIDs; appointments use their <code>public_id</code>, not database IDs or the display appointment number. Complex detail uses the complex slug.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Access</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/appointment-slots</code></td>
+<td>Token and password changed</td>
+<td>Available appointment slots</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/appointments</code></td>
+<td>Token and password changed</td>
+<td>Book an appointment</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/appointments/{appointment}</code></td>
+<td>Token and password changed</td>
+<td>Own appointment detail and events</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/appointments/{appointment}/cancel</code></td>
+<td>Token and password changed</td>
+<td>Cancel a pending or confirmed appointment</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/auth/forgot-password</code></td>
+<td>Public</td>
+<td>Email password reset link</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/auth/login</code></td>
+<td>Public</td>
+<td>Issue a member device token</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/auth/logout</code></td>
+<td>Token</td>
+<td>Revoke current device token</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/auth/me</code></td>
+<td>Token</td>
+<td>Current authenticated identity</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/auth/password</code></td>
+<td>Token</td>
+<td>Change password and revoke all tokens</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/auth/register</code></td>
+<td>Public</td>
+<td>Register an unlinked applicant and issue token</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/auth/reset-password</code></td>
+<td>Public</td>
+<td>Reset password and revoke all tokens</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bank-transactions/{transaction}</code></td>
+<td>Token and password changed</td>
+<td>Read own stored bank transaction status</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bank-transactions/{transaction}/receipt</code></td>
+<td>Token and password changed</td>
+<td>Read verified payment receipt HTML</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/bank-transactions/{transaction}/verify</code></td>
+<td>Token and password changed</td>
+<td>Query bank server and verify payment</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bank/checkout/{transaction}</code></td>
+<td>Signed URL</td>
+<td>Open short-lived signed hosted checkout bridge</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bank/return</code></td>
+<td>Public</td>
+<td>Public static mobile bank return instruction</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/challans</code></td>
+<td>Token and password changed</td>
+<td>List own challans</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/challans/{challan}</code></td>
+<td>Token and password changed</td>
+<td>Own challan detail and fee items</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/challans/{challan}/bank/initiate</code></td>
+<td>Token and password changed</td>
+<td>Initiate hosted BOP sandbox checkout</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/challans/{challan}/print</code></td>
+<td>Token and password changed</td>
+<td>Own printable challan HTML</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/dashboard</code></td>
+<td>Token and password changed</td>
+<td>Dashboard appointments dues summary and recent notices</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/facilities</code></td>
+<td>Token and password changed</td>
+<td>Facilities allowed by active membership plans</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/family-members</code></td>
+<td>Token and password changed</td>
+<td>List or create own dependent records</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/family-members</code></td>
+<td>Token and password changed</td>
+<td>List or create own dependent records</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/ledger</code></td>
+<td>Token and password changed</td>
+<td>Paginated ledger with full-account totals</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/me</code></td>
+<td>Token and password changed</td>
+<td>Member profile and memberships</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/me</code></td>
+<td>Token and password changed</td>
+<td>Member profile and memberships</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/me/card.pdf</code></td>
+<td>Token and password changed</td>
+<td>Download own membership card PDF</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/me/photo</code></td>
+<td>Token and password changed</td>
+<td>Read own private profile photograph</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/notifications</code></td>
+<td>Token and password changed</td>
+<td>Paginated account notifications</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/notifications/{notification}/read</code></td>
+<td>Token and password changed</td>
+<td>Mark own notification read</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/portal</code></td>
+<td>Public</td>
+<td>Public complexes facilities images and appointment purposes</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/sports-complexes/{sportsComplex}</code></td>
+<td>Public</td>
+<td>Public complex detail by slug</td>
+</tr>
+</tbody>
+</table>
+<h2 id="request-fields-and-validation">Request fields and validation</h2>
+<p>All listed fields are required unless marked optional. Extra fields never grant an admin role or allow linking another member.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Body or query</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST <code>/auth/login</code></td>
+<td><code>login</code> CNIC or email, <code>password</code>, <code>device_name</code> up to 100 characters. CNIC formatting is stripped.</td>
+</tr>
+<tr>
+<td>POST <code>/auth/register</code></td>
+<td><code>name</code> up to 255 characters, unique <code>cnic</code> 13 digits, unique <code>email</code>, Pakistani <code>phone</code> in <code>03XXXXXXXXX</code> format, <code>password</code>, <code>password_confirmation</code>, <code>device_name</code>. No file/photo upload in this mobile registration endpoint.</td>
+</tr>
+<tr>
+<td>POST <code>/auth/forgot-password</code></td>
+<td><code>email</code>. Always returns the same eligibility-neutral message. Delivery depends on configured mail transport.</td>
+</tr>
+<tr>
+<td>POST <code>/auth/reset-password</code></td>
+<td><code>email</code>, emailed <code>token</code>, <code>password</code>, <code>password_confirmation</code>. Invalid or expired reset returns 422.</td>
+</tr>
+<tr>
+<td>PUT <code>/auth/password</code></td>
+<td><code>current_password</code>, <code>password</code>, <code>password_confirmation</code>. New password needs 8+ characters with uppercase, lowercase and a digit.</td>
+</tr>
+<tr>
+<td>PUT <code>/me</code></td>
+<td><code>name</code>, unique <code>email</code>, <code>phone</code> in <code>03XXXXXXXXX</code> format. Updates the portal account; it does not amend the imported SAP member master record.</td>
+</tr>
+<tr>
+<td>GET <code>/ledger</code>, GET <code>/notifications</code></td>
+<td>Optional <code>page</code> (default 1), <code>per_page</code> (default 25, clamped to 1–100).</td>
+</tr>
+<tr>
+<td>POST <code>/family-members</code></td>
+<td><code>full_name</code> up to 255 characters, <code>relationship</code> up to 80, optional <code>date_of_birth</code> not after today, optional <code>parent_family_member_id</code> within the same sponsor’s dependents.</td>
+</tr>
+<tr>
+<td>GET <code>/appointment-slots</code></td>
+<td>Query <code>sports_complex_id</code>, <code>date</code> in <code>YYYY-MM-DD</code>, strictly after today.</td>
+</tr>
+<tr>
+<td>POST <code>/appointments</code></td>
+<td><code>sports_complex_id</code>, <code>appointment_purpose_id</code>, <code>appointment_date</code> in <code>YYYY-MM-DD</code>, <code>appointment_time</code> in <code>HH:mm</code>. Use available slots rather than inventing times.</td>
+</tr>
+<tr>
+<td>POST <code>/appointments/{appointment}/cancel</code></td>
+<td>Optional <code>reason</code>, up to 1,000 characters. Only pending or confirmed appointments can be cancelled.</td>
+</tr>
+<tr>
+<td>POST <code>/challans/{challan}/bank/initiate</code></td>
+<td><code>initiation_key</code>: a fresh UUID for a new payment attempt. Persist and reuse it for retries of the same attempt.</td>
+</tr>
+<tr>
+<td>POST <code>/bank-transactions/{transaction}/verify</code></td>
+<td>No body. Bank inquiry is performed on the server.</td>
+</tr>
+<tr>
+<td>POST <code>/auth/logout</code>, PUT <code>/notifications/{notification}/read</code></td>
+<td>No body. Marking an already-read notification read is safe to repeat.</td>
+</tr>
+</tbody>
+</table>
+<p>Passwords in registration, reset and change require at least 8 characters, uppercase, lowercase and a digit. No staff-created membership, financial charge or bank status can be written directly by the mobile client.</p>
+<h2 id="response-contracts">Response contracts</h2>
+<p>JSON responses use the endpoint shapes below; there is no universal <code>success/data</code> wrapper. Unknown fields may be added. Keep CNIC/customer numbers as strings, preserve decimal money values and display PKR. Do not infer that imported SAP credits were online bank payments.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Stable response shape and UI use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/portal</code></td>
+<td><code>{complexes: [...], purposes: [...]}</code>. Complexes include <code>id</code>, <code>name</code>, <code>slug</code>, <code>code</code>, address, phone, descriptions, opening hours, facilities and images. Purpose entries provide booking IDs and names.</td>
+</tr>
+<tr>
+<td><code>/sports-complexes/{slug}</code></td>
+<td>Complex object with facilities, images and <code>appointment_schedule</code> when configured. Some image URLs may be relative; resolve against the deployed application root, including <code>/sports-complex</code> when present.</td>
+</tr>
+<tr>
+<td><code>/auth/me</code></td>
+<td><code>{user: {id, name, email, cnic, phone, member_id, must_change_password}}</code>.</td>
+</tr>
+<tr>
+<td>GET or PUT <code>/me</code></td>
+<td><code>{user: {...}, member: object or null}</code>. Member includes <code>id</code>, <code>customer_no</code>, <code>membership_no</code>, <code>full_name</code>, <code>status</code>, <code>sports_complex</code>, <code>memberships</code> and <code>profile_image_url</code>. Memberships include <code>status</code>, <code>starts_on</code>, nullable <code>expires_on</code>, and <code>plan</code>. Use <code>/me/photo</code> with bearer authentication to retrieve the photograph.</td>
+</tr>
+<tr>
+<td><code>/dashboard</code></td>
+<td><code>user</code>, <code>sports_complex</code>, <code>upcoming</code>, <code>appointments</code>, <code>notifications</code>, <code>unpaid_challans: {count, amount}</code>, <code>account_summary: {source, transaction_count, total_charged, total_paid, balance}</code>. <code>upcoming</code> can be null. Display existing workflow statuses; do not treat a booked appointment as membership approval.</td>
+</tr>
+<tr>
+<td><code>/ledger</code></td>
+<td><code>member</code>, <code>source</code> when linked, <code>summary: {total_charged, total_paid, balance}</code>, <code>transactions: [...]</code>, <code>meta: {current_page, per_page, total, last_page}</code>. Rows include <code>key</code>, <code>date</code>, <code>type</code>, <code>reference</code>, <code>description</code>, <code>status</code>, <code>debit</code>, <code>credit</code>, <code>balance</code>. SAP rows may also include document type, clearing document and <code>date_is_anomalous</code>. Totals and running balances cover the full account, not just the requested page. The current implementation computes the source ledger before slicing it into pages.</td>
+</tr>
+<tr>
+<td><code>/challans</code></td>
+<td><code>{data: [...]}</code> with <code>id</code>, <code>challan_no</code>, <code>purpose</code>, <code>amount</code>, <code>issued_on</code>, <code>due_on</code>, <code>status</code>, <code>sap_status</code>, <code>sap_document_no</code>. All own challans, newest first; this endpoint is not paginated.</td>
+</tr>
+<tr>
+<td><code>/challans/{id}</code></td>
+<td>Challan financial fields plus <code>previous_outstanding</code>, <code>current_amount</code>, <code>items: [{id, description, amount, gl_account}]</code> and authenticated <code>print_url</code>. Internal SAP request/response payloads are not returned.</td>
+</tr>
+<tr>
+<td><code>/facilities</code></td>
+<td><code>{data: [...]}</code>. Requires an active dated membership and filters to the linked complex and eligible membership plans. A facility with no assigned plans is available to every active plan at that complex. Maintenance/closed facilities may still be shown with their operational status and maintenance notice. This is discovery/access information, not a facility booking reservation.</td>
+</tr>
+<tr>
+<td><code>/notifications</code></td>
+<td>Laravel paginator: <code>data</code>, <code>current_page</code>, <code>per_page</code>, <code>total</code>, <code>last_page</code>, <code>next_page_url</code>, etc. Entries include <code>id</code>, <code>type</code>, <code>title</code>, <code>message</code>, nullable <code>read_at</code>, and optional action URL. Resolve web action paths to native app screens. Dashboard maintenance notices are informational and do not have a notification database ID to mark read.</td>
+</tr>
+<tr>
+<td><code>/family-members</code></td>
+<td>GET returns an array. POST returns the created dependent object with HTTP 201. No family editing/deleting or native family-card download endpoint in this release.</td>
+</tr>
+<tr>
+<td><code>/appointment-slots</code></td>
+<td><code>{slots: [...]}</code>. Use returned slot time and availability/capacity. Availability can change before submission; handle 409/422 and reload.</td>
+</tr>
+<tr>
+<td>POST <code>/appointments</code></td>
+<td>Created appointment object, HTTP 201, including <code>public_id</code>, <code>appointment_no</code>, date/time and status.</td>
+</tr>
+<tr>
+<td><code>/appointments/{public_id}</code></td>
+<td>Own appointment with <code>sports_complex</code>, <code>purpose</code>, <code>events</code>; cancellation returns the updated appointment. Dashboard is the appointment list in this API version.</td>
+</tr>
+<tr>
+<td>Bank initiation/status/verify</td>
+<td><code>public_id</code>, <code>challan_id</code>, <code>order_id</code>, <code>status</code>, <code>amount</code>, <code>currency</code>, <code>environment</code>, <code>bank_transaction_reference</code>, <code>failure_message</code>, <code>verified_at</code>, nullable <code>checkout_url</code> and <code>receipt_url</code>. No bank credential, success indicator or raw gateway session ID is exposed in JSON.</td>
+</tr>
+</tbody>
+</table>
+<p>An applicant with no linked member receives <code>member: null</code>, empty finance/facility arrays and zero totals. A membership card or photo requires a linked record and returns 404 when absent. Notification and ledger lists have different documented pagination shapes; do not assume one parser fits both.</p>
+<h3 id="errors-and-limits">Errors and limits</h3>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Meaning and expected app action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Successful read/update/login or bank inquiry. A 200 bank response does not imply payment success; inspect <code>status</code>.</td>
+</tr>
+<tr>
+<td>201</td>
+<td>Applicant/dependent/appointment created.</td>
+</tr>
+<tr>
+<td>204</td>
+<td>Current device logout succeeded; no response body.</td>
+</tr>
+<tr>
+<td>401</td>
+<td>Missing, expired or revoked token. Sign in again.</td>
+</tr>
+<tr>
+<td>403</td>
+<td>Wrong owner, inactive user, wrong role/ability, or invalid/expired checkout URL.</td>
+</tr>
+<tr>
+<td>404</td>
+<td>Resource, linked member, photo or verified receipt unavailable.</td>
+</tr>
+<tr>
+<td>409</td>
+<td>Temporary password change required or workflow conflict. Inspect <code>code</code> when present.</td>
+</tr>
+<tr>
+<td>422</td>
+<td>Validation error. Display field-specific messages from <code>errors</code>.</td>
+</tr>
+<tr>
+<td>429</td>
+<td>Rate limit; respect <code>Retry-After</code> and back off.</td>
+</tr>
+<tr>
+<td>500/503</td>
+<td>Unexpected server/integration issue or service unavailable. Preserve the initiation key and transaction ID; do not claim success or repeatedly start new payment attempts.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">{&quot;message&quot;:&quot;The given data was invalid.&quot;,&quot;errors&quot;:{&quot;login&quot;:[&quot;The supplied member credentials are not valid.&quot;]}}
+</code></pre>
+<pre><code class="language-json">{&quot;message&quot;:&quot;Change the temporary password before using the member portal.&quot;,&quot;code&quot;:&quot;PASSWORD_CHANGE_REQUIRED&quot;}
+</code></pre>
+<p>Limits: all mobile requests 120/minute; public authentication operations share 5/minute; password change/payment initiation share an additional 5/minute authenticated write bucket; bank verification 10/minute. Limits apply by authenticated user or IP as appropriate. Numeric middleware buckets are separated so the overall limit does not double-count against the authentication limit.</p>
+<h2 id="cards-documents-and-photographs">Cards documents and photographs</h2>
+<p><code>GET /me/card.pdf</code> returns <code>application/pdf</code>. Download it using a bearer-authorised HTTP client, save to an app-private file and then open/share that file. Do not send the bearer token in a URL.</p>
+<p><code>GET /me/photo</code> returns private image bytes, normally WebP. Photo replacement remains administrator-controlled. Absence returns 404; render a placeholder.</p>
+<p><code>GET /challans/{id}/print</code> and <code>/bank-transactions/{uuid}/receipt</code> return HTML, not JSON or PDF. Fetch them with the bearer header and render the response in a controlled document viewer or print workflow. A PDF conversion may be performed on the device. The receipt is available only after verified bank payment. Returned HTML contains existing web navigation links; native navigation should use the app’s authenticated endpoints instead.</p>
+<p>Financial documents must be treated as private. Private API responses use <code>Cache-Control: no-store</code>; clear temporary downloaded files when appropriate.</p>
+<h2 id="bank-sandbox-integration">Bank sandbox integration</h2>
+<ol>
+<li>Display Pay only for payable challans. Call <code>/challans/{id}/bank/initiate</code> with a persisted UUID <code>initiation_key</code>.</li>
+<li>Check returned <code>status</code>. If <code>session_created</code> or <code>pending</code> and <code>checkout_url</code> is present, open the <strong>exact URL</strong> in the system browser/custom tab. It is a signed checkout capability valid for 10 minutes and does not need the account bearer token or a browser session. Do not log or forward it. Obtain another checkout URL through authenticated transaction status if the link expires.</li>
+<li>Card entry remains on Mastercard Hosted Checkout. The mobile app never collects or stores card numbers or bank API credentials.</li>
+<li>Newly created mobile sessions return to the static <code>/bank/return</code> instruction page. When the user returns to the app, or explicitly taps Verify, call <code>/bank-transactions/{uuid}/verify</code> with the member token. A pre-existing browser-created session may return to its original web login URL; the mobile verification endpoint still works independently.</li>
+<li>Never accept the browser redirect or <code>resultIndicator</code> as payment proof. The existing service accepts payment only after server inquiry confirms captured status and matching order, amount and PKR currency.</li>
+<li>Only <code>status: verified</code> unlocks the receipt and confirms the challan’s paid status. <code>pending</code> and <code>verification_required</code> remain unresolved; show an appropriate message and retry verification with backoff. A timeout is not proof of failure or success.</li>
+<li>Verification is idempotent. The client cannot mark a challan paid. The existing bank service and its transaction audit records are reused.</li>
+</ol>
+<p>The bank implementation is <strong>test environment only</strong>. Automated bank tests mock gateway responses. Real card completion, production onboarding, bank acceptance, refunds/reversals and settlement reconciliation require separate work and verification. No webhook contract or push payment completion is introduced. Do not show test collections as production revenue.</p>
+<h2 id="flutter-and-react-native-implementation-notes">Flutter and React Native implementation notes</h2>
+<p>Use a single configurable base URL. For Android local development, use emulator host <code>10.0.2.2</code>; a physical phone cannot reach the developer computer at its own <code>localhost</code>. Keep HTTP exceptions limited to development builds; production must use HTTPS.</p>
+<p>Example JavaScript request helper (works with React Native fetch):</p>
+<pre><code class="language-javascript">const baseUrl = 'https://YOUR_APPROVED_HOST/sports-complex/api/mobile/v1';
+async function api(path, { token, method = 'GET', body } = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    ...(body ? { body: JSON.stringify(body) } : {})
+  });
+  if (response.status === 204) return null;
+  const payload = await response.json();
+  if (!response.ok) throw { status: response.status, ...payload };
+  return payload;
+}
+</code></pre>
+<p>Use a separate binary/text downloader for PDF, images and HTML. On <code>PASSWORD_CHANGE_REQUIRED</code>, navigate to password change. On 401, remove secure storage credentials. Do not retry appointment creation automatically after an uncertain network result without checking the dashboard for an existing booking. For bank initiation, retry with the same UUID and inspect the existing transaction.</p>
+<p>Reset emails use the existing web reset page. A mobile app can accept a user-entered emailed reset token and email through <code>/auth/reset-password</code>, but verified app links/deep links and push notification tokens are not configured in this release. The currently checked application default in <code>config/app.php</code> is UTC. Confirm the required deployment timezone with operations; appointment dates and times use that server timezone. ISO timestamps can be displayed in Asia/Karachi as needed.</p>
+<h2 id="backend-installation-and-deployment-handoff">Backend installation and deployment handoff</h2>
+<p>Deployment has been completed for the release above. The instructions below also support future installations. The source implementation is in <code>routes/api.php</code>, <code>app/Http/Controllers/Mobile</code>, <code>app/Http/Middleware/EnsureMobileToken.php</code>, with Sanctum in Composer and one new personal-access-token migration. The existing web login/session routes remain in place.</p>
+<p>Local setup:</p>
+<pre><code class="language-bash">composer install
+php artisan migrate
+php artisan serve --host=0.0.0.0 --port=8000
+php artisan route:list --path=api/mobile
+php artisan test --compact
+</code></pre>
+<p>Provision existing member logins with the existing staff provisioning workflow; do not ship a shared default member password in the app. Use synthetic test accounts in a development database.</p>
+<p>For deployment, back up the application and database first, upload the reviewed source and Composer lock file, install locked production dependencies, then run the new migration before serving requests. Set the approved HTTPS <code>APP_URL</code>, preserve secrets and private storage, clear/rebuild configuration and route caches, and ensure the reverse proxy forwards the <code>Authorization</code> header to PHP (for Nginx/FastCGI, verify <code>fastcgi_param HTTP_AUTHORIZATION $http_authorization</code>). Do not run the main seeder in production because it defines a default administrator password.</p>
+<p>Existing password change/reset paths now revoke Sanctum tokens. Therefore the personal-access-token migration is required before this source is used. No new application database tables other than Sanctum’s token table are required. Schedule <code>sanctum:prune-expired</code> through the server’s existing scheduler/maintenance process if desired; expired tokens are rejected even before physical pruning.</p>
+<p>Acceptance checks before giving a live base URL to the mobile team:</p>
+<ul>
+<li>Public discovery responds and URLs resolve under the deployed subdirectory.</li>
+<li>Synthetic member login, mandatory password change, logout and expired-token rejection work over HTTPS.</li>
+<li>A member cannot retrieve another member’s challan, appointment, dependent, notification or bank transaction.</li>
+<li>Member cards/photos and financial HTML download with bearer headers; browser cookie-only requests cannot access mobile endpoints.</li>
+<li>Bank sandbox checkout opens without session cookies; captured inquiry updates one payment once, while pending/mismatch stays unpaid.</li>
+<li>Existing staff/member web workflows still pass regression tests.</li>
+</ul>
+<p>The deployment preserved live data, uploaded files, configuration and administrator credentials. It did not provision real member accounts or perform live SAP/bank transactions. The temporary synthetic smoke-test account and its tokens were removed. Live SQLite directory ownership was corrected so PHP can create journals and write rate-limit cache entries.</p></body></html>

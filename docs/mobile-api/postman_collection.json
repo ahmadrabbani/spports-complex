@@ -1,0 +1,686 @@
+{
+  "info": {
+    "name": "LDA Sports Complex Mobile API v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://104.207.64.25/sports-complex/api/mobile/v1"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "challan",
+      "value": "1"
+    },
+    {
+      "key": "transaction",
+      "value": "TRANSACTION_PUBLIC_UUID"
+    },
+    {
+      "key": "appointment",
+      "value": "APPOINTMENT_PUBLIC_ID"
+    },
+    {
+      "key": "notification",
+      "value": "1"
+    },
+    {
+      "key": "sportsComplex",
+      "value": "COMPLEX_SLUG"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "GET appointment-slots",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/appointment-slots?sports_complex_id=1&date=2026-11-02",
+        "description": "Available appointment slots"
+      }
+    },
+    {
+      "name": "POST appointments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/appointments",
+        "description": "Book an appointment",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sports_complex_id\": 1,\n  \"appointment_purpose_id\": 1,\n  \"appointment_date\": \"2026-11-02\",\n  \"appointment_time\": \"10:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "GET appointments/{appointment}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/appointments/{{appointment}}",
+        "description": "Own appointment detail and events"
+      }
+    },
+    {
+      "name": "POST appointments/{appointment}/cancel",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/appointments/{{appointment}}/cancel",
+        "description": "Cancel a pending or confirmed appointment",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"Unable to attend\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "POST auth/forgot-password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/forgot-password",
+        "description": "Email password reset link",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"member@example.test\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "POST auth/login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/login",
+        "description": "Issue a member device token",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"login\": \"member@example.test\",\n  \"password\": \"YOUR_MEMBER_PASSWORD\",\n  \"device_name\": \"Director Demo Android\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) { pm.collectionVariables.set(\"access_token\", pm.response.json().access_token); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST auth/logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/logout",
+        "description": "Revoke current device token"
+      }
+    },
+    {
+      "name": "GET auth/me",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/me",
+        "description": "Current authenticated identity"
+      }
+    },
+    {
+      "name": "PUT auth/password",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/password",
+        "description": "Change password and revoke all tokens",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_password\": \"YOUR_CURRENT_PASSWORD\",\n  \"password\": \"NewExamplePass123\",\n  \"password_confirmation\": \"NewExamplePass123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "POST auth/register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/register",
+        "description": "Register an unlinked applicant and issue token",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Demo Applicant\",\n  \"cnic\": \"9999900000003\",\n  \"email\": \"demo.applicant@example.test\",\n  \"phone\": \"03000000000\",\n  \"password\": \"ExamplePass123\",\n  \"password_confirmation\": \"ExamplePass123\",\n  \"device_name\": \"Android\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) { pm.collectionVariables.set(\"access_token\", pm.response.json().access_token); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST auth/reset-password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/reset-password",
+        "description": "Reset password and revoke all tokens",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"member@example.test\",\n  \"token\": \"EMAIL_RESET_TOKEN\",\n  \"password\": \"NewExamplePass123\",\n  \"password_confirmation\": \"NewExamplePass123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "GET bank-transactions/{transaction}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/bank-transactions/{{transaction}}",
+        "description": "Read own stored bank transaction status"
+      }
+    },
+    {
+      "name": "GET bank-transactions/{transaction}/receipt",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/html"
+          }
+        ],
+        "url": "{{base_url}}/bank-transactions/{{transaction}}/receipt",
+        "description": "Read verified payment receipt HTML"
+      }
+    },
+    {
+      "name": "POST bank-transactions/{transaction}/verify",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/bank-transactions/{{transaction}}/verify",
+        "description": "Query bank server and verify payment"
+      }
+    },
+    {
+      "name": "GET bank/checkout/{transaction}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/html"
+          }
+        ],
+        "url": "{{base_url}}/bank/checkout/{{transaction}}?expires=REPLACE_FROM_CHECKOUT_URL&signature=REPLACE_FROM_CHECKOUT_URL",
+        "description": "Open short-lived signed hosted checkout bridge",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET bank/return",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/plain"
+          }
+        ],
+        "url": "{{base_url}}/bank/return",
+        "description": "Public static mobile bank return instruction",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET challans",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/challans",
+        "description": "List own challans"
+      }
+    },
+    {
+      "name": "GET challans/{challan}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/challans/{{challan}}",
+        "description": "Own challan detail and fee items"
+      }
+    },
+    {
+      "name": "POST challans/{challan}/bank/initiate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/challans/{{challan}}/bank/initiate",
+        "description": "Initiate hosted BOP sandbox checkout",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"initiation_key\": \"{{$guid}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "GET challans/{challan}/print",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/html"
+          }
+        ],
+        "url": "{{base_url}}/challans/{{challan}}/print",
+        "description": "Own printable challan HTML"
+      }
+    },
+    {
+      "name": "GET dashboard",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/dashboard",
+        "description": "Dashboard appointments dues summary and recent notices"
+      }
+    },
+    {
+      "name": "GET facilities",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/facilities",
+        "description": "Facilities allowed by active membership plans"
+      }
+    },
+    {
+      "name": "GET family-members",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/family-members",
+        "description": "List or create own dependent records"
+      }
+    },
+    {
+      "name": "POST family-members",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/family-members",
+        "description": "List or create own dependent records",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Demo Dependent\",\n  \"relationship\": \"Son\",\n  \"date_of_birth\": \"2015-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "GET ledger",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/ledger?page=1&per_page=25",
+        "description": "Paginated ledger with full-account totals"
+      }
+    },
+    {
+      "name": "GET me",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/me",
+        "description": "Member profile and memberships"
+      }
+    },
+    {
+      "name": "PUT me",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/me",
+        "description": "Member profile and memberships",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Demo Member\",\n  \"email\": \"member@example.test\",\n  \"phone\": \"03000000000\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "GET me/card.pdf",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/pdf"
+          }
+        ],
+        "url": "{{base_url}}/me/card.pdf",
+        "description": "Download own membership card PDF"
+      }
+    },
+    {
+      "name": "GET me/photo",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/me/photo",
+        "description": "Read own private profile photograph"
+      }
+    },
+    {
+      "name": "GET notifications",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/notifications?page=1&per_page=25",
+        "description": "Paginated account notifications"
+      }
+    },
+    {
+      "name": "PUT notifications/{notification}/read",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/notifications/{{notification}}/read",
+        "description": "Mark own notification read"
+      }
+    },
+    {
+      "name": "GET portal",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/portal",
+        "description": "Public complexes facilities images and appointment purposes",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET sports-complexes/{sportsComplex}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/sports-complexes/{{sportsComplex}}",
+        "description": "Public complex detail by slug",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "scope": "local only",
+  "created_complex_admins": 10,
+  "tests": {
+    "passed": 117,
+    "assertions": 858
+  },
+  "credentials_file_mode": "0o600",
+  "unchanged_tables": {
+    "members": 10187,
+    "memberships": 1,
+    "challans": 1,
+    "challan_items": 1,
+    "payments": 0,
+    "member_charges": 2262,
+    "member_transactions": 331307,
+    "bank_transactions": 1
+  },
+  "existing_user_records_unchanged": true,
+  "integrity_check": "ok",
+  "foreign_key_errors": 0
+}
